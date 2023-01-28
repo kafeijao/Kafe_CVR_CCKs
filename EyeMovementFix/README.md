@@ -13,6 +13,12 @@ This CCK Mod component allows you to define eye rotation limits on your avatars.
    see what it will look on your avatar.
 5. After you got values that you're satisfied with, you can upload the avatar (don't remove the script from the avatar).
 
+The limits should be:
+- Box on the `top` to the max angle looking up
+- Box on the `left` is the max angle looking horizontally inwards (direction of the nose)
+- Box on the `right` is the max angle looking horizontally outwards (in direction opposite of the nose)
+- Box on the `bottom` is the max angle looking down
+
 ## Notes
 
 1. The preview will rotate your eye bones, and it should restore the rotations when you stop previewing. But if you want
