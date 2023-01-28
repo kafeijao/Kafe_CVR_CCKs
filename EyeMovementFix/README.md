@@ -4,9 +4,10 @@ This CCK Mod component allows you to define eye rotation limits on your avatars.
 
 ## Installation & Usage
 
-1. Download and import `EyeMovementFixCCKMod.unitypackage` from the releases into your unity project.
+1. Download and import `EyeMovementFixCCKMod.unitypackage` 
+   from the [latest releases](https://github.com/kafeijao/Kafe_CVR_CCKs/releases/latest) into your unity project.
 2. Go to the root of your avatar (where the `CVR Avatar` script is located) and add the component `Eye Rotation Limits`.
-3. You will get presented with something like the image bellow:
+3. You will get presented with something like the following image:
    ![](EyeRotationLimitsScript.png)
 4. You can configure the limits for the eye angles, and click the `Preview Eye Rotations` and play with the sliders to
    see what it will look on your avatar.
