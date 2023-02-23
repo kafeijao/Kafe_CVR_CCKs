@@ -1,26 +1,37 @@
-﻿using UnityEditor;
+﻿using ABI.CCK.Components;
+using UnityEditor;
 using UnityEngine;
 
 namespace Kafe.CVRSuperMario64;
 
-[RequireComponent(typeof(CVRSM64InputSpawnable))]
-public class CVRSM64CMario : MonoBehaviour {
+public class CVRSM64Mario : MonoBehaviour {
     [SerializeField] internal Material material;
     [SerializeField] internal bool replaceTextures = true;
     [SerializeField] internal List<string> propertiesToReplaceWithTexture = new() { "_MainTex" };
+    [SerializeField] internal CVRSpawnable spawnable;
 }
 
 [CanEditMultipleObjects]
-[CustomEditor(typeof(CVRSM64CMario))]
+[CustomEditor(typeof(CVRSM64Mario))]
 public class CVRSM64CMarioEditor : Editor {
 
     private const string TEXTURE_NAME_PREFIX = "sm64_proxy_";
 
+    private readonly HashSet<string> _marioSyncedInputs = new() {
+        "Horizontal",
+        "Vertical",
+        "Jump",
+        "Kick",
+        "Stomp",
+    };
+
+    SerializedProperty spawnable;
     SerializedProperty material;
     SerializedProperty replaceTextures;
     SerializedProperty propertiesToReplaceWithTexture;
 
     private void OnEnable() {
+        spawnable = serializedObject.FindProperty("spawnable");
         material = serializedObject.FindProperty("material");
         replaceTextures = serializedObject.FindProperty("replaceTextures");
         propertiesToReplaceWithTexture = serializedObject.FindProperty("propertiesToReplaceWithTexture");
@@ -33,15 +44,34 @@ public class CVRSM64CMarioEditor : Editor {
             return;
         }
 
-        var behavior = (CVRSM64CMario) target;
+        var behavior = (CVRSM64Mario) target;
 
         serializedObject.Update();
+        EditorGUILayout.PropertyField(spawnable);
         EditorGUILayout.PropertyField(material);
         serializedObject.ApplyModifiedProperties();
 
+        if (!ValidateSpawnable(behavior)) {
+
+            if (GUILayout.Button(new GUIContent(
+                    "Attempt to Auto-Setup Mario", "This will add/modify a CVRSpawnable Script , " +
+                                   "and set it up with the Mario Requirements " +
+                                   "(add synced params, and optionally a sub-sync transform)."))) {
+                SetupSpawnable(behavior);
+            }
+            return;
+        }
+
+        if (!ValidateMaterial(behavior)) return;
+
+        serializedObject.ApplyModifiedProperties();
+    }
+
+    private bool ValidateMaterial(CVRSM64Mario behavior) {
+
         if (behavior.material == null) {
             EditorGUILayout.HelpBox("Leaving an empty material will ensure to use our default Mario Material.", MessageType.Info);
-            return;
+            return false;
         }
 
         var shader = behavior.material.shader;
@@ -102,6 +132,137 @@ public class CVRSM64CMarioEditor : Editor {
             }
         }
 
-        serializedObject.ApplyModifiedProperties();
+        return true;
+    }
+
+    private const CVRSpawnableSubSync.SyncFlags AllFlags =
+        CVRSpawnableSubSync.SyncFlags.RotationX |
+        CVRSpawnableSubSync.SyncFlags.RotationY |
+        CVRSpawnableSubSync.SyncFlags.RotationZ |
+        CVRSpawnableSubSync.SyncFlags.TransformX |
+        CVRSpawnableSubSync.SyncFlags.TransformY |
+        CVRSpawnableSubSync.SyncFlags.TransformZ;
+
+    private void SetupSpawnable(CVRSM64Mario behavior) {
+
+        // Missing spawnable -> Create it
+        if (behavior.spawnable == null) {
+            behavior.spawnable = behavior.gameObject.AddComponent<CVRSpawnable>();
+        }
+
+        // Configure basic spawnable settings
+        behavior.spawnable.spawnHeight = 0.2f;
+        behavior.spawnable.useAdditionalValues = true;
+
+        // Add each synced value to the spawnable
+        foreach (var inputName in _marioSyncedInputs) {
+
+            var parameter = behavior.spawnable.syncValues.FirstOrDefault(value => value.name == inputName);
+
+            // Missing parameter -> Create it
+            if (parameter == null) {
+                var syncedValue = new CVRSpawnableValue {
+                    name = inputName
+                };
+                behavior.spawnable.syncValues.Add(syncedValue);
+            }
+        }
+
+        // Fix the sub-sync transform in case it's not on the root
+        var isOnRoot = behavior.spawnable.gameObject == behavior.gameObject;
+        if (!isOnRoot) {
+            var subSync = behavior.spawnable.subSyncs.FirstOrDefault(value => value.transform == behavior.transform);
+            if (subSync == null) {
+                subSync = new CVRSpawnableSubSync {
+                    precision = CVRSpawnableSubSync.SyncPrecision.Full,
+                    transform = behavior.transform,
+                    syncedValues = AllFlags,
+                };
+                behavior.spawnable.subSyncs.Add(subSync);
+            }
+            subSync.precision = CVRSpawnableSubSync.SyncPrecision.Full;
+            subSync.syncedValues = AllFlags;
+        }
+    }
+
+    private bool ValidateSpawnable(CVRSM64Mario behavior) {
+
+        var parentSpawnable = behavior.gameObject.GetComponentInParent<CVRSpawnable>();
+
+        if (behavior.spawnable == null) {
+
+            if (parentSpawnable == null) {
+                var err = $"{nameof(CVRSM64Mario)} requires a {nameof(CVRSpawnable)} defined!";
+                EditorGUILayout.HelpBox(err, MessageType.Error);
+                if (Application.isPlaying) throw new Exception(err);
+                return false;
+            }
+
+            behavior.spawnable = parentSpawnable;
+        }
+
+        if (behavior.spawnable != parentSpawnable) {
+            var err = $"The {nameof(CVRSpawnable)} defined in {nameof(CVRSM64Mario)} [{behavior.gameObject.name}] " +
+                      $"is not on the same game object nor on a parent game object! Or you multiple {nameof(CVRSpawnable)}? " +
+                      $"What have you done ???";
+            EditorGUILayout.HelpBox(err, MessageType.Error);
+            if (Application.isPlaying) throw new Exception(err);
+            return false;
+        }
+
+        var rootSpawnable = behavior.GetComponent<CVRSpawnable>();
+
+        var hasMarioSubSync = false;
+
+        if (rootSpawnable == null) {
+            foreach (var subSync in behavior.spawnable.subSyncs) {
+                if (subSync.transform == behavior.transform) {
+                    if (subSync.precision != CVRSpawnableSubSync.SyncPrecision.Full) {
+                        var err = $"We recommend setting the {nameof(CVRSpawnable)} sub-sync for the mario " +
+                                  $"transform to Full. Currently set to: " +
+                                  $"{Enum.GetName(typeof(CVRSpawnableSubSync.SyncPrecision), subSync.precision)}...";
+                        EditorGUILayout.HelpBox(err, MessageType.Warning);
+                    }
+
+                    foreach (var syncFlag in (CVRSpawnableSubSync.SyncFlags[])Enum.GetValues(typeof(CVRSpawnableSubSync.SyncFlags))) {
+                        if (!subSync.syncedValues.HasFlag(syncFlag)) {
+                            var err = $"We need the sub-sync for the mario transform to sync EVERYTHING. Currently missing: {Enum.GetName(typeof(CVRSpawnableSubSync.SyncFlags), syncFlag)}";
+                            EditorGUILayout.HelpBox(err, MessageType.Error);
+                            if (Application.isPlaying) throw new Exception(err);
+                            return false;
+                        }
+                    }
+
+                    hasMarioSubSync = true;
+                }
+            }
+        }
+
+        if (rootSpawnable) {
+            EditorGUILayout.HelpBox($"Mario position is being synced due being on the same game object as the " +
+                                    $"{nameof(CVRSpawnable)} component.", MessageType.Info);
+        }
+        else if (hasMarioSubSync) {
+            EditorGUILayout.HelpBox($"Mario position is being synced due being on the a sunb-sync transform " +
+                                    $"of the {nameof(CVRSpawnable)} component.", MessageType.Info);
+        }
+        else {
+            var err = $"{nameof(CVRSM64Mario)} requires to be placed either on the game object that has" +
+                      $" the {nameof(CVRSpawnable)} or on a transform that is set as a sub-sync.";
+            EditorGUILayout.HelpBox(err, MessageType.Error);
+            if (Application.isPlaying) throw new Exception(err);
+            return false;
+        }
+
+        foreach (var marioSyncedInput in _marioSyncedInputs) {
+            var parameter = behavior.spawnable.syncValues.FirstOrDefault(value => value.name == marioSyncedInput);
+            if (parameter != null) continue;
+            var err = $"{nameof(CVRSM64Mario)} requires a {nameof(CVRSpawnable)} with a synced value named: {marioSyncedInput}";
+            EditorGUILayout.HelpBox(err, MessageType.Error);
+            if (Application.isPlaying) throw new Exception(err);
+            return false;
+        }
+
+        return true;
     }
 }
