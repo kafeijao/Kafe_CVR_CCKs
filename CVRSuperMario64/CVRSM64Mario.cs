@@ -1,14 +1,55 @@
 ﻿using ABI.CCK.Components;
 using UnityEditor;
+using UnityEditor.Animations;
 using UnityEngine;
 
 namespace Kafe.CVRSuperMario64;
 
+[ExecuteInEditMode]
 public class CVRSM64Mario : MonoBehaviour {
-    [SerializeField] internal Material material;
+
+    [SerializeField] internal CVRSpawnable spawnable;
+    [SerializeField] internal bool advancedOptions = false;
+
+    // Material & Textures
+    [SerializeField] internal Material material = null;
     [SerializeField] internal bool replaceTextures = true;
     [SerializeField] internal List<string> propertiesToReplaceWithTexture = new() { "_MainTex" };
-    [SerializeField] internal CVRSpawnable spawnable;
+
+    // Animators
+    [SerializeField] internal List<Animator> animators = new();
+
+    // Asset bundle to load the gizmo mesh
+    [NonSerialized] private static Mesh _marioMeshCached;
+    private const string LibSM64AssetBundleName = "libsm64cck.assetbundle";
+    [NonSerialized] private const string MarioFbxAssetPath = "Assets/CVRSuperMario64/Mario.fbx";
+
+    [InitializeOnLoadMethod]
+    private static void OnInitialized() {
+        try {
+            var resourceStream = typeof(CVRSM64Mario).Assembly.GetManifestResourceStream(LibSM64AssetBundleName);
+            using var memoryStream = new MemoryStream();
+            if (resourceStream == null) {
+                Debug.LogError($"Failed to load {LibSM64AssetBundleName}! There won't be any Mario Gizmos!");
+                return;
+            }
+            resourceStream.CopyTo(memoryStream);
+            var assetBundle = AssetBundle.LoadFromMemory(memoryStream.ToArray());
+            var fbxGo = assetBundle.LoadAsset<GameObject>(MarioFbxAssetPath);
+            assetBundle.Unload(false);
+            var skinnedMeshRenderer = fbxGo.GetComponentInChildren<SkinnedMeshRenderer>(true);
+            _marioMeshCached = skinnedMeshRenderer.sharedMesh;
+        }
+        catch (Exception ex) {
+            Debug.LogError("Failed to Load the asset bundle. There won't be any Mario Gizmos!\n" + ex.Message);
+        }
+    }
+
+    private void OnDrawGizmos() {
+        if (_marioMeshCached == null) return;
+        Gizmos.color = Color.red;
+        Gizmos.DrawWireMesh(_marioMeshCached, transform.position, transform.rotation, Vector3.one);
+    }
 }
 
 [CanEditMultipleObjects]
@@ -17,24 +58,39 @@ public class CVRSM64CMarioEditor : Editor {
 
     private const string TEXTURE_NAME_PREFIX = "sm64_proxy_";
 
-    private readonly HashSet<string> _marioSyncedInputs = new() {
-        "Horizontal",
-        "Vertical",
-        "Jump",
-        "Kick",
-        "Stomp",
+    private static readonly Dictionary<string, AnimatorControllerParameterType> _syncedParameters = new() {
+        {"Horizontal", AnimatorControllerParameterType.Float},
+        {"Vertical", AnimatorControllerParameterType.Float},
+        {"Jump", AnimatorControllerParameterType.Float},
+        {"Kick", AnimatorControllerParameterType.Float},
+        {"Stomp", AnimatorControllerParameterType.Float},
+        {"Health", AnimatorControllerParameterType.Float},
+    };
+
+    private static readonly Dictionary<string, AnimatorControllerParameterType> _localParameters = new() {
+        {"Lives", AnimatorControllerParameterType.Int},
+        {"HasMod", AnimatorControllerParameterType.Bool},
     };
 
     SerializedProperty spawnable;
+    SerializedProperty advancedOptions;
+
     SerializedProperty material;
     SerializedProperty replaceTextures;
     SerializedProperty propertiesToReplaceWithTexture;
 
+    SerializedProperty animators;
+
     private void OnEnable() {
         spawnable = serializedObject.FindProperty("spawnable");
+
+        advancedOptions = serializedObject.FindProperty("advancedOptions");
+
         material = serializedObject.FindProperty("material");
         replaceTextures = serializedObject.FindProperty("replaceTextures");
         propertiesToReplaceWithTexture = serializedObject.FindProperty("propertiesToReplaceWithTexture");
+
+        animators = serializedObject.FindProperty("animators");
     }
 
     public override void OnInspectorGUI() {
@@ -48,21 +104,34 @@ public class CVRSM64CMarioEditor : Editor {
 
         serializedObject.Update();
         EditorGUILayout.PropertyField(spawnable);
-        EditorGUILayout.PropertyField(material);
+        EditorGUILayout.PropertyField(advancedOptions);
         serializedObject.ApplyModifiedProperties();
 
-        if (!ValidateSpawnable(behavior)) {
 
+        if (!ValidateSpawnable(behavior)) {
             if (GUILayout.Button(new GUIContent(
                     "Attempt to Auto-Setup Mario", "This will add/modify a CVRSpawnable Script , " +
-                                   "and set it up with the Mario Requirements " +
-                                   "(add synced params, and optionally a sub-sync transform)."))) {
+                                                   "and set it up with the Mario Requirements " +
+                                                   "(add synced params, and optionally a sub-sync transform)."))) {
                 SetupSpawnable(behavior);
             }
             return;
         }
 
-        if (!ValidateMaterial(behavior)) return;
+        if (advancedOptions.boolValue) {
+
+            EditorGUILayout.PropertyField(material);
+            ValidateMaterial(behavior);
+
+            EditorGUILayout.PropertyField(animators);
+            if (!ValidateAnimators(behavior)) {
+                if (GUILayout.Button(new GUIContent(
+                        "Attempt to Auto-Setup Animators", "This will add/modify the type of the parameters required in the animators selected."))) {
+                    SetupAnimators(behavior);
+                }
+            }
+            EditorGUILayout.HelpBox($"These animators will have the parameters {string.Join(", ", _localParameters.Keys)} managed by the mod!", MessageType.Info);
+        }
 
         serializedObject.ApplyModifiedProperties();
     }
@@ -143,7 +212,7 @@ public class CVRSM64CMarioEditor : Editor {
         CVRSpawnableSubSync.SyncFlags.TransformY |
         CVRSpawnableSubSync.SyncFlags.TransformZ;
 
-    private void SetupSpawnable(CVRSM64Mario behavior) {
+    private static void SetupSpawnable(CVRSM64Mario behavior) {
 
         // Missing spawnable -> Create it
         if (behavior.spawnable == null) {
@@ -155,14 +224,14 @@ public class CVRSM64CMarioEditor : Editor {
         behavior.spawnable.useAdditionalValues = true;
 
         // Add each synced value to the spawnable
-        foreach (var inputName in _marioSyncedInputs) {
+        foreach (var inputName in _syncedParameters) {
 
-            var parameter = behavior.spawnable.syncValues.FirstOrDefault(value => value.name == inputName);
+            var parameter = behavior.spawnable.syncValues.FirstOrDefault(value => value.name == inputName.Key);
 
             // Missing parameter -> Create it
             if (parameter == null) {
                 var syncedValue = new CVRSpawnableValue {
-                    name = inputName
+                    name = inputName.Key
                 };
                 behavior.spawnable.syncValues.Add(syncedValue);
             }
@@ -185,14 +254,14 @@ public class CVRSM64CMarioEditor : Editor {
         }
     }
 
-    private bool ValidateSpawnable(CVRSM64Mario behavior) {
+    private static bool ValidateSpawnable(CVRSM64Mario behavior) {
 
         var parentSpawnable = behavior.gameObject.GetComponentInParent<CVRSpawnable>();
 
         if (behavior.spawnable == null) {
 
             if (parentSpawnable == null) {
-                var err = $"{nameof(CVRSM64Mario)} requires a {nameof(CVRSpawnable)} defined!";
+                const string err = $"{nameof(CVRSM64Mario)} requires a {nameof(CVRSpawnable)} defined!";
                 EditorGUILayout.HelpBox(err, MessageType.Error);
                 if (Application.isPlaying) throw new Exception(err);
                 return false;
@@ -216,25 +285,24 @@ public class CVRSM64CMarioEditor : Editor {
 
         if (rootSpawnable == null) {
             foreach (var subSync in behavior.spawnable.subSyncs) {
-                if (subSync.transform == behavior.transform) {
-                    if (subSync.precision != CVRSpawnableSubSync.SyncPrecision.Full) {
-                        var err = $"We recommend setting the {nameof(CVRSpawnable)} sub-sync for the mario " +
-                                  $"transform to Full. Currently set to: " +
-                                  $"{Enum.GetName(typeof(CVRSpawnableSubSync.SyncPrecision), subSync.precision)}...";
-                        EditorGUILayout.HelpBox(err, MessageType.Warning);
-                    }
+                if (subSync.transform != behavior.transform) continue;
 
-                    foreach (var syncFlag in (CVRSpawnableSubSync.SyncFlags[])Enum.GetValues(typeof(CVRSpawnableSubSync.SyncFlags))) {
-                        if (!subSync.syncedValues.HasFlag(syncFlag)) {
-                            var err = $"We need the sub-sync for the mario transform to sync EVERYTHING. Currently missing: {Enum.GetName(typeof(CVRSpawnableSubSync.SyncFlags), syncFlag)}";
-                            EditorGUILayout.HelpBox(err, MessageType.Error);
-                            if (Application.isPlaying) throw new Exception(err);
-                            return false;
-                        }
-                    }
-
-                    hasMarioSubSync = true;
+                if (subSync.precision != CVRSpawnableSubSync.SyncPrecision.Full) {
+                    var err = $"We recommend setting the {nameof(CVRSpawnable)} sub-sync for the mario " +
+                              $"transform to Full. Currently set to: " +
+                              $"{Enum.GetName(typeof(CVRSpawnableSubSync.SyncPrecision), subSync.precision)}...";
+                    EditorGUILayout.HelpBox(err, MessageType.Warning);
                 }
+
+                foreach (var syncFlag in (CVRSpawnableSubSync.SyncFlags[])Enum.GetValues(typeof(CVRSpawnableSubSync.SyncFlags))) {
+                    if (subSync.syncedValues.HasFlag(syncFlag)) continue;
+                    var err = $"We need the sub-sync for the mario transform to sync EVERYTHING. Currently missing: {Enum.GetName(typeof(CVRSpawnableSubSync.SyncFlags), syncFlag)}";
+                    EditorGUILayout.HelpBox(err, MessageType.Error);
+                    if (Application.isPlaying) throw new Exception(err);
+                    return false;
+                }
+
+                hasMarioSubSync = true;
             }
         }
 
@@ -247,15 +315,15 @@ public class CVRSM64CMarioEditor : Editor {
                                     $"of the {nameof(CVRSpawnable)} component.", MessageType.Info);
         }
         else {
-            var err = $"{nameof(CVRSM64Mario)} requires to be placed either on the game object that has" +
-                      $" the {nameof(CVRSpawnable)} or on a transform that is set as a sub-sync.";
+            const string err = $"{nameof(CVRSM64Mario)} requires to be placed either on the game object that has" +
+                               $" the {nameof(CVRSpawnable)} or on a transform that is set as a sub-sync.";
             EditorGUILayout.HelpBox(err, MessageType.Error);
             if (Application.isPlaying) throw new Exception(err);
             return false;
         }
 
-        foreach (var marioSyncedInput in _marioSyncedInputs) {
-            var parameter = behavior.spawnable.syncValues.FirstOrDefault(value => value.name == marioSyncedInput);
+        foreach (var marioSyncedInput in _syncedParameters) {
+            var parameter = behavior.spawnable.syncValues.FirstOrDefault(value => value.name == marioSyncedInput.Key);
             if (parameter != null) continue;
             var err = $"{nameof(CVRSM64Mario)} requires a {nameof(CVRSpawnable)} with a synced value named: {marioSyncedInput}";
             EditorGUILayout.HelpBox(err, MessageType.Error);
@@ -264,5 +332,98 @@ public class CVRSM64CMarioEditor : Editor {
         }
 
         return true;
+    }
+
+    private static bool ValidateAnimators(CVRSM64Mario behavior) {
+
+        var possibleAnimators = behavior.spawnable.GetComponentsInChildren<Animator>(true);
+
+        foreach (var animator in behavior.animators) {
+
+            // Animator is null
+            if (animator == null) {
+                const string err2 = $"{nameof(CVRSM64Mario)} There is an empty animator in the animator's list...";
+                EditorGUILayout.HelpBox(err2, MessageType.Error);
+                if (Application.isPlaying) throw new Exception(err2);
+                return false;
+            }
+
+            // Check if it's a possible animator
+            if (!possibleAnimators.Contains(animator)) {
+                var err = $"{nameof(CVRSM64Mario)} the {animator.gameObject.name} animator is outside of the spawnable hierarchy...";
+                EditorGUILayout.HelpBox(err, MessageType.Error);
+                if (Application.isPlaying) throw new Exception(err);
+                return false;
+            }
+
+            // Animator controller is null
+            if (animator.runtimeAnimatorController == null) {
+                var err2 = $"{nameof(CVRSM64Mario)} There is an animator on {animator.gameObject.name} game object that has no animator controller...";
+                EditorGUILayout.HelpBox(err2, MessageType.Error);
+                if (Application.isPlaying) throw new Exception(err2);
+                return false;
+            }
+
+            var animatorController = GetAnimatorController(animator);
+
+            foreach (var localParameter in _localParameters) {
+
+                var matchedName = animatorController.parameters.FirstOrDefault(controllerParameter => controllerParameter.name == localParameter.Key);
+
+                // Missing the parameter name
+                if (matchedName == null) {
+                    var err1 = $"{nameof(CVRSM64Mario)} {animator.gameObject.name}'s animator is missing a parameters named {localParameter.Key} of the type {localParameter.Value.ToString()}!";
+                    EditorGUILayout.HelpBox(err1, MessageType.Error);
+                    if (Application.isPlaying) throw new Exception(err1);
+                    return false;
+                }
+
+                // Wrong parameter type
+                if (matchedName.type != localParameter.Value) {
+                    var err1 = $"{nameof(CVRSM64Mario)} {animator.gameObject.name}'s animator parameter {localParameter.Key} has the wrong type, it is: {matchedName.type.ToString()} but should be: {localParameter.Value.ToString()}!";
+                    EditorGUILayout.HelpBox(err1, MessageType.Error);
+                    if (Application.isPlaying) throw new Exception(err1);
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    private static AnimatorController GetAnimatorController(Animator animator) {
+        var runtimeController = animator.runtimeAnimatorController;
+        if (runtimeController.GetType() == typeof(AnimatorOverrideController)) {
+            var overrideController = (AnimatorOverrideController)runtimeController;
+            runtimeController = overrideController.runtimeAnimatorController;
+        }
+        return (AnimatorController) AssetDatabase.LoadAssetAtPath(AssetDatabase.GetAssetPath(runtimeController), typeof(AnimatorController));
+    }
+
+    private static void SetupAnimators(CVRSM64Mario behavior) {
+
+        // Remove null animators or animators with no controllers
+        behavior.animators.RemoveAll(item => item == null || item.runtimeAnimatorController == null);
+
+        foreach (var animator in behavior.animators) {
+
+            var animatorController = GetAnimatorController(animator);
+
+            foreach (var localParameter in _localParameters) {
+                var matchedName = animatorController.parameters.FirstOrDefault(controllerParameter => controllerParameter.name == localParameter.Key);
+
+                // Missing the parameter name -> Make new
+                if (matchedName == null) {
+                    animatorController.AddParameter(localParameter.Key, localParameter.Value);
+                    continue;
+                }
+
+                // Wrong parameter type
+                if (matchedName.type != localParameter.Value) {
+                    animatorController.RemoveParameter(matchedName);
+                    animatorController.AddParameter(localParameter.Key, localParameter.Value);
+                }
+            }
+        }
     }
 }

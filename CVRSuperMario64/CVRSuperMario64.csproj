@@ -1,2 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Project Sdk="Microsoft.NET.Sdk"/>
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <ItemGroup>
+        <EmbeddedResource Include="Resources/libsm64cck.assetbundle">
+            <LogicalName>libsm64cck.assetbundle</LogicalName>
+        </EmbeddedResource>
+    </ItemGroup>
+
+</Project>
