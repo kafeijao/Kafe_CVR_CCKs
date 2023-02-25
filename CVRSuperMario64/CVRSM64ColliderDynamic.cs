@@ -28,6 +28,7 @@ public class CVRSM64ColliderDynamicEditor : Editor {
         typeof(CapsuleCollider),
         typeof(MeshCollider),
         typeof(SphereCollider),
+        typeof(TerrainCollider),
     };
 
     public override void OnInspectorGUI() {
