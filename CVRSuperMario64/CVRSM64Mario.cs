@@ -19,6 +19,10 @@ public class CVRSM64Mario : MonoBehaviour {
     // Animators
     [SerializeField] internal List<Animator> animators = new();
 
+    // Camera override
+    [SerializeField] internal bool overrideCameraPosition = false;
+    [SerializeField] internal Transform cameraPositionTransform;
+
     // Asset bundle to load the gizmo mesh
     [NonSerialized] private static Mesh _marioMeshCached;
     private const string LibSM64AssetBundleName = "libsm64cck.assetbundle";
@@ -81,6 +85,9 @@ public class CVRSM64CMarioEditor : Editor {
 
     SerializedProperty animators;
 
+    SerializedProperty overrideCameraPosition;
+    SerializedProperty cameraPositionTransform;
+
     private void OnEnable() {
         spawnable = serializedObject.FindProperty("spawnable");
 
@@ -91,6 +98,9 @@ public class CVRSM64CMarioEditor : Editor {
         propertiesToReplaceWithTexture = serializedObject.FindProperty("propertiesToReplaceWithTexture");
 
         animators = serializedObject.FindProperty("animators");
+
+        overrideCameraPosition = serializedObject.FindProperty("overrideCameraPosition");
+        cameraPositionTransform = serializedObject.FindProperty("cameraPositionTransform");
     }
 
     public override void OnInspectorGUI() {
@@ -104,6 +114,7 @@ public class CVRSM64CMarioEditor : Editor {
 
         serializedObject.Update();
         EditorGUILayout.PropertyField(spawnable);
+        EditorGUILayout.Separator();
         EditorGUILayout.PropertyField(advancedOptions);
         serializedObject.ApplyModifiedProperties();
 
@@ -120,9 +131,13 @@ public class CVRSM64CMarioEditor : Editor {
 
         if (advancedOptions.boolValue) {
 
+            // Material
+            EditorGUILayout.Separator();
             EditorGUILayout.PropertyField(material);
             ValidateMaterial(behavior);
 
+            // Animators
+            EditorGUILayout.Separator();
             EditorGUILayout.PropertyField(animators);
             if (!ValidateAnimators(behavior)) {
                 if (GUILayout.Button(new GUIContent(
@@ -131,6 +146,21 @@ public class CVRSM64CMarioEditor : Editor {
                 }
             }
             EditorGUILayout.HelpBox($"These animators will have the parameters {string.Join(", ", _localParameters.Keys)} managed by the mod!", MessageType.Info);
+
+            // Camera override
+            EditorGUILayout.Separator();
+            EditorGUILayout.PropertyField(overrideCameraPosition);
+            EditorGUILayout.PropertyField(cameraPositionTransform);
+            if (behavior.cameraPositionTransform != null) {
+                if (!behavior.cameraPositionTransform.IsChildOf(behavior.spawnable.transform)) {
+                    EditorGUILayout.HelpBox($"{behavior.cameraPositionTransform.name} is not in the present " +
+                                            $"on nor inside of the spawnable hierarchy...", MessageType.Error);
+                }
+            }
+            EditorGUILayout.HelpBox($"You can slot a transform here, and whenever you set the override camera " +
+                                    $"position to true, this transform will be used as camera position to control the Mario. " +
+                                    $"You can animate the overrideCameraPosition boolean!", MessageType.Info);
+            EditorGUILayout.Separator();
         }
 
         serializedObject.ApplyModifiedProperties();
