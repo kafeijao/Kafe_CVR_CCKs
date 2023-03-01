@@ -69,11 +69,16 @@ public class CVRSM64CMarioEditor : Editor {
         {"Kick", AnimatorControllerParameterType.Float},
         {"Stomp", AnimatorControllerParameterType.Float},
         {"Health", AnimatorControllerParameterType.Float},
+        {"Flags", AnimatorControllerParameterType.Float},
+        {"Action", AnimatorControllerParameterType.Float},
     };
 
     private static readonly Dictionary<string, AnimatorControllerParameterType> _localParameters = new() {
         {"Lives", AnimatorControllerParameterType.Int},
         {"HasMod", AnimatorControllerParameterType.Bool},
+        {"HasMetalCap", AnimatorControllerParameterType.Bool},
+        {"HasWingCap", AnimatorControllerParameterType.Bool},
+        {"HasVanishCap", AnimatorControllerParameterType.Bool},
     };
 
     SerializedProperty spawnable;
@@ -355,7 +360,7 @@ public class CVRSM64CMarioEditor : Editor {
         foreach (var marioSyncedInput in _syncedParameters) {
             var parameter = behavior.spawnable.syncValues.FirstOrDefault(value => value.name == marioSyncedInput.Key);
             if (parameter != null) continue;
-            var err = $"{nameof(CVRSM64Mario)} requires a {nameof(CVRSpawnable)} with a synced value named: {marioSyncedInput}";
+            var err = $"{nameof(CVRSM64Mario)} requires a {nameof(CVRSpawnable)} with a synced value named: {marioSyncedInput.Key}";
             EditorGUILayout.HelpBox(err, MessageType.Error);
             if (Application.isPlaying) throw new Exception(err);
             return false;
