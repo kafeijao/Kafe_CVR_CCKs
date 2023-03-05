@@ -74,11 +74,13 @@ public class CVRSM64CMarioEditor : Editor {
     };
 
     private static readonly Dictionary<string, AnimatorControllerParameterType> _localParameters = new() {
-        {"Lives", AnimatorControllerParameterType.Int},
+        {"HealthPoints", AnimatorControllerParameterType.Int},
         {"HasMod", AnimatorControllerParameterType.Bool},
         {"HasMetalCap", AnimatorControllerParameterType.Bool},
         {"HasWingCap", AnimatorControllerParameterType.Bool},
         {"HasVanishCap", AnimatorControllerParameterType.Bool},
+        {"IsMine", AnimatorControllerParameterType.Bool},
+        {"IsBypassed", AnimatorControllerParameterType.Bool},
     };
 
     SerializedProperty spawnable;
