@@ -23,6 +23,10 @@ public class CVRSM64Mario : MonoBehaviour {
     [SerializeField] internal bool overrideCameraPosition = false;
     [SerializeField] internal Transform cameraPositionTransform;
 
+    // Camera Mod Override
+    [SerializeField] internal Transform cameraModTransform = null;
+    [SerializeField] internal List<Renderer> cameraModTransformRenderersToHide = new();
+
     // Asset bundle to load the gizmo mesh
     [NonSerialized] private static Mesh _marioMeshCached;
     private const string LibSM64AssetBundleName = "libsm64cck.assetbundle";
@@ -71,6 +75,7 @@ public class CVRSM64CMarioEditor : Editor {
         {"Health", AnimatorControllerParameterType.Float},
         {"Flags", AnimatorControllerParameterType.Float},
         {"Action", AnimatorControllerParameterType.Float},
+        {"HasCameraMod", AnimatorControllerParameterType.Float},
     };
 
     private static readonly Dictionary<string, AnimatorControllerParameterType> _localParameters = new() {
@@ -95,6 +100,9 @@ public class CVRSM64CMarioEditor : Editor {
     SerializedProperty overrideCameraPosition;
     SerializedProperty cameraPositionTransform;
 
+    SerializedProperty cameraModTransform;
+    SerializedProperty cameraModTransformRenderersToHide;
+
     private void OnEnable() {
         spawnable = serializedObject.FindProperty("spawnable");
 
@@ -108,6 +116,9 @@ public class CVRSM64CMarioEditor : Editor {
 
         overrideCameraPosition = serializedObject.FindProperty("overrideCameraPosition");
         cameraPositionTransform = serializedObject.FindProperty("cameraPositionTransform");
+
+        cameraModTransform = serializedObject.FindProperty("cameraModTransform");
+        cameraModTransformRenderersToHide = serializedObject.FindProperty("cameraModTransformRenderersToHide");
     }
 
     public override void OnInspectorGUI() {
@@ -167,6 +178,36 @@ public class CVRSM64CMarioEditor : Editor {
             EditorGUILayout.HelpBox($"You can slot a transform here, and whenever you set the override camera " +
                                     $"position to true, this transform will be used as camera position to control the Mario. " +
                                     $"You can animate the overrideCameraPosition boolean!", MessageType.Info);
+            EditorGUILayout.Separator();
+
+            EditorGUILayout.PropertyField(cameraModTransform);
+            if (behavior.cameraModTransform != null) {
+                if (!behavior.cameraModTransform.IsChildOf(behavior.spawnable.transform)) {
+                    EditorGUILayout.HelpBox($"{behavior.cameraModTransform.name} is not in the present " +
+                                            $"on nor inside of the spawnable hierarchy...", MessageType.Error);
+                }
+                if (!ValidateSubSync(behavior, behavior.cameraModTransform)) {
+                    EditorGUILayout.HelpBox($"The transform you slotted is not a sub-sync, so it will not be " +
+                                            $"synced for other players :(", MessageType.Warning);
+                }
+            }
+            EditorGUILayout.HelpBox($"You can slot a transform here, this transform will be set to the position and " +
+                                    $"rotation of the camera when the camera mod is opened and controlling this mario.", MessageType.Info);
+
+            EditorGUILayout.PropertyField(cameraModTransformRenderersToHide);
+            foreach (var renderer in behavior.cameraModTransformRenderersToHide) {
+                if (renderer == null) {
+                    EditorGUILayout.HelpBox($"You have a null renderer in the renderer list...", MessageType.Error);
+                    continue;
+                }
+                if (!renderer.transform.IsChildOf(behavior.spawnable.transform)) {
+                    EditorGUILayout.HelpBox($"The Renderer in {renderer.transform.name} is not in the present " +
+                                            $"on nor inside of the spawnable hierarchy...", MessageType.Error);
+                }
+            }
+            EditorGUILayout.HelpBox($"You can slots renderers here that you want to hide from the CVR Camera " +
+                                    $"when you are controlling using the CVR Camera.", MessageType.Info);
+
             EditorGUILayout.Separator();
         }
 
@@ -291,6 +332,29 @@ public class CVRSM64CMarioEditor : Editor {
         }
     }
 
+    private static bool ValidateSubSync(CVRSM64Mario behavior, Transform transform) {
+        foreach (var subSync in behavior.spawnable.subSyncs) {
+            if (subSync.transform != transform) continue;
+
+            if (subSync.precision != CVRSpawnableSubSync.SyncPrecision.Full) {
+                var err = $"We recommend setting the {nameof(CVRSpawnable)} sub-sync for the mario " +
+                          $"transform to Full. Currently set to: " +
+                          $"{Enum.GetName(typeof(CVRSpawnableSubSync.SyncPrecision), subSync.precision)}...";
+                EditorGUILayout.HelpBox(err, MessageType.Warning);
+            }
+
+            foreach (var syncFlag in (CVRSpawnableSubSync.SyncFlags[])Enum.GetValues(typeof(CVRSpawnableSubSync.SyncFlags))) {
+                if (subSync.syncedValues.HasFlag(syncFlag)) continue;
+                var err = $"We need the sub-sync for the mario transform to sync EVERYTHING. Currently missing: {Enum.GetName(typeof(CVRSpawnableSubSync.SyncFlags), syncFlag)}";
+                EditorGUILayout.HelpBox(err, MessageType.Error);
+                if (Application.isPlaying) throw new Exception(err);
+                return false;
+            }
+            return true;
+        }
+        return false;
+    }
+
     private static bool ValidateSpawnable(CVRSM64Mario behavior) {
 
         var parentSpawnable = behavior.gameObject.GetComponentInParent<CVRSpawnable>();
@@ -321,26 +385,7 @@ public class CVRSM64CMarioEditor : Editor {
         var hasMarioSubSync = false;
 
         if (rootSpawnable == null) {
-            foreach (var subSync in behavior.spawnable.subSyncs) {
-                if (subSync.transform != behavior.transform) continue;
-
-                if (subSync.precision != CVRSpawnableSubSync.SyncPrecision.Full) {
-                    var err = $"We recommend setting the {nameof(CVRSpawnable)} sub-sync for the mario " +
-                              $"transform to Full. Currently set to: " +
-                              $"{Enum.GetName(typeof(CVRSpawnableSubSync.SyncPrecision), subSync.precision)}...";
-                    EditorGUILayout.HelpBox(err, MessageType.Warning);
-                }
-
-                foreach (var syncFlag in (CVRSpawnableSubSync.SyncFlags[])Enum.GetValues(typeof(CVRSpawnableSubSync.SyncFlags))) {
-                    if (subSync.syncedValues.HasFlag(syncFlag)) continue;
-                    var err = $"We need the sub-sync for the mario transform to sync EVERYTHING. Currently missing: {Enum.GetName(typeof(CVRSpawnableSubSync.SyncFlags), syncFlag)}";
-                    EditorGUILayout.HelpBox(err, MessageType.Error);
-                    if (Application.isPlaying) throw new Exception(err);
-                    return false;
-                }
-
-                hasMarioSubSync = true;
-            }
+            if (ValidateSubSync(behavior, behavior.transform)) hasMarioSubSync = true;
         }
 
         if (rootSpawnable) {
