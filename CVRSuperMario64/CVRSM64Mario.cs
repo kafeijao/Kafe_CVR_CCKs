@@ -86,6 +86,7 @@ public class CVRSM64CMarioEditor : Editor {
         {"HasVanishCap", AnimatorControllerParameterType.Bool},
         {"IsMine", AnimatorControllerParameterType.Bool},
         {"IsBypassed", AnimatorControllerParameterType.Bool},
+        {"IsTeleporting", AnimatorControllerParameterType.Bool},
     };
 
     SerializedProperty spawnable;
