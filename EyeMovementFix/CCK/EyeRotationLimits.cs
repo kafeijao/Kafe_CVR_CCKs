@@ -5,6 +5,17 @@ using UnityEngine.Animations;
 
 namespace EyeMovementFix.CCK {
 
+    [InitializeOnLoad]
+    public static class EyeRotationLimitsInitializer {
+        static EyeRotationLimitsInitializer() {
+            const string symbol = "KAFE_CVR_CCK_EYE_MOVEMENT_FIX_EXISTS";
+            var defines = PlayerSettings.GetScriptingDefineSymbolsForGroup(EditorUserBuildSettings.selectedBuildTargetGroup);
+            if (defines.Contains(symbol)) return;
+            PlayerSettings.SetScriptingDefineSymbolsForGroup(EditorUserBuildSettings.selectedBuildTargetGroup, $"{defines};{symbol}");
+            Debug.Log("Added KAFE_CVR_CCK_EYE_MOVEMENT_FIX_EXISTS Scripting Symbol.");
+        }
+    }
+
     public class EyeRotationLimits : MonoBehaviour {
 
         // Actual Rotation Limits (present in-game)
