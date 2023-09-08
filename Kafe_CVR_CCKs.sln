@@ -4,6 +4,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EyeMovementFix", "EyeMoveme
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CVRSuperMario64", "CVRSuperMario64\CVRSuperMario64.csproj", "{A73A34C6-2E5F-451D-A8CB-412F85000C5A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NavMeshFollower", "NavMeshFollower\NavMeshFollower.csproj", "{B64DE9CC-C0EE-43AE-99FB-4B3262308B04}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -18,5 +20,9 @@ Global
 		{A73A34C6-2E5F-451D-A8CB-412F85000C5A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A73A34C6-2E5F-451D-A8CB-412F85000C5A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A73A34C6-2E5F-451D-A8CB-412F85000C5A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B64DE9CC-C0EE-43AE-99FB-4B3262308B04}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B64DE9CC-C0EE-43AE-99FB-4B3262308B04}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B64DE9CC-C0EE-43AE-99FB-4B3262308B04}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B64DE9CC-C0EE-43AE-99FB-4B3262308B04}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
