@@ -15,6 +15,46 @@ There are 3 types, each one increasing in complexity:
 - Follower with head IK and Arms IK, so it can look and lift the arms to interact with the
   targets. [section](#Follower-with-LookAt-IK-and-VRIK-for-Arm-movement)
 
+## Special Parameters
+
+There are special parameters that you can add to your followers, and the mod will set their values.
+
+### Synced Values
+
+If you want the parameter values to be synced you need to create a Synced Value with the `Name` matching the
+the reserved names.
+
+**Note1:** You need to set the `Name` field on the `Sync Value` on the parameter, not the parameter name. You
+can then name the parameter whatever you want.
+
+**Note2:** Currently the `Sync Values` need to be floats (otherwise they won't appear on the list to select them).
+
+**Note3:** You can also use these locally (so you don't spend sync values), but they will be set only for the
+spawner of the follower locally, so they're not that useful. If you still want to do this you can just add them as
+parameters on any animator in the prop by naming them the same as the sync value name but with a `#` at the start. For
+example a local parameter for `HasNavMeshFollowerMod` would be `#HasNavMeshFollowerMod`. These parameters can be of
+any type, as they will be converted from floats to the type you pick for the parameter.
+
+#### Possible Sync Value Names
+
+- `MovementY` - Value between `-1.0` and `1.0` depending on the velocity forward. It will be `0.0` when not moving.
+- `MovementX` - Value between `-1.0` and `1.0` depending on the velocity sideways. It will be `0.0` when not moving.
+- `Grounded` - This will be `0.0` if the Follower is jumping across a nav mesh link, `1.0` otherwise.
+- `Idle` - This will be `0.0` if the Follower is busy doing something, `1.0` otherwise.
+- `HasNavMeshFollowerMod` - `0.0` when then Follower Spawner doesn't have the mod installed (or has an old
+  version), `1.0` otherwise.
+- `IsBakingNavMesh` - This value will be `1.0` when the nav mesh is baking for this follower, `0.0` otherwise.
+- `VRIK/LeftArm/Weight` - This will be `1.0` when the follower is controlling the left arm with the VRIK script, `0.0`
+  otherwise.
+- `VRIK/RightArm/Weight` - This will be `1.0` when the follower is controlling the right arm with the VRIK script, `0.0`
+  otherwise.
+
+### Local Only Parameters
+
+There is one parameter in particular that can be used in any animator of your prop. It's the `bool`
+parameter `#SpawnedByMe`. This will be set to `true` for the person that spawned the follower. For obvious reasons this
+parameter can only be local (it wouldn't make sense to sync this).
+
 ## Simple follower
 
 This is the most basic setup, and it only requires a `NavMeshAgent` for the setup.
