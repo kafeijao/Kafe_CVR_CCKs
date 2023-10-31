@@ -5,6 +5,11 @@ Rushed instructions on how to create your own follower!
 You can Download the latest NavMeshFollower unity package on
 the [latest releases](https://github.com/kafeijao/Kafe_CVR_CCKs/releases/latest)
 
+[@NovaVoidHowl](https://github.com/NovaVoidHowl) made an awesome editor script/app that helps with the custom follower
+setup. I heavily recommend it as it turns something rather complex into a fairly simple process!
+[https://github.com/NovaVoidHowl/NavMesh-Follower-Setup](https://github.com/NovaVoidHowl/NavMesh-Follower-Setup)
+Otherwise keep reading and good luck!
+
 I suggest starting on an empty project in case something goes wrong. Keep in mind this is still in early development!
 Feel free to contribute to these instructions, it would help me a lot :3
 
