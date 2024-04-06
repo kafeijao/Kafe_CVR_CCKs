@@ -6,6 +6,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CVRSuperMario64", "CVRSuper
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NavMeshFollower", "NavMeshFollower\NavMeshFollower.csproj", "{B64DE9CC-C0EE-43AE-99FB-4B3262308B04}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RetroCVR", "RetroCVR\RetroCVR.csproj", "{660E6C63-F826-4167-BB41-7309796B3114}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -24,5 +26,9 @@ Global
 		{B64DE9CC-C0EE-43AE-99FB-4B3262308B04}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B64DE9CC-C0EE-43AE-99FB-4B3262308B04}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B64DE9CC-C0EE-43AE-99FB-4B3262308B04}.Release|Any CPU.Build.0 = Release|Any CPU
+		{660E6C63-F826-4167-BB41-7309796B3114}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{660E6C63-F826-4167-BB41-7309796B3114}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{660E6C63-F826-4167-BB41-7309796B3114}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{660E6C63-F826-4167-BB41-7309796B3114}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

@@ -210,11 +210,12 @@ I based my example animator on @NotAKidOnSteam [CCK.BaseAnimatorPatch](https://g
 
 ---
 
-## Disclosure
+# Disclosure
 
 > ---
-> ⚠️ **Notice!**  
+> ⚠️ **Notice!**
 >
-> This mod's developer(s) and the mod itself, along with the respective mod loaders, have no affiliation with ABI!
+> This project is an independent creation and is not affiliated with, supported by, or approved by Alpha Blend
+> Interactive
 >
 > ---
